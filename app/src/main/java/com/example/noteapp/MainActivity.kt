@@ -101,8 +101,8 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("add_note") {
                         NoteEditScreen(
-                            onSave = { title, content, tags ->
-                                viewModel.createNote(title, content, tags)
+                            onSave = { title, content, tags, images ->
+                                viewModel.createNote(title, content, tags, images)
                             },
                             onBack = { navController.popBackStack() }
                         )
@@ -118,8 +118,8 @@ class MainActivity : ComponentActivity() {
                         note?.let { noteEntity ->
                             NoteEditScreen(
                                 note = noteEntity,
-                                onSave = { title, content, tags ->
-                                    viewModel.updateNote(noteId, title, content, tags)
+                                onSave = { title, content, tags, images ->
+                                    viewModel.updateNote(noteId, title, content, tags, images)
                                 },
                                 onBack = { navController.popBackStack() }
                             )

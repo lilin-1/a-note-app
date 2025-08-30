@@ -15,6 +15,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.noteapp.data.NoteEntity
+import com.example.noteapp.data.NoteImage
 import com.example.noteapp.utils.TagParser
 import java.math.BigDecimal
 import java.util.*
@@ -23,12 +24,13 @@ import java.util.*
 @Composable
 fun NoteEditScreen(
     note: NoteEntity? = null,
-    onSave: (String, String, List<String>) -> Unit,
+    onSave: (String, String, List<String>, List<NoteImage>) -> Unit,
     onBack: () -> Unit
 ) {
     var title by remember { mutableStateOf(note?.title ?: "") }
     var content by remember { mutableStateOf(note?.content ?: "") }
     var tagsText by remember { mutableStateOf(note?.tags?.joinToString(", ") ?: "") }
+    var images by remember { mutableStateOf(note?.images ?: emptyList()) }
     var showAccountingDialog by remember { mutableStateOf(false) }
     
     val isNewNote = note == null
@@ -55,12 +57,12 @@ fun NoteEditScreen(
                     IconButton(
                         onClick = {
                             val tags = tagsText.split(",")
-                                .map { it.trim() }
-                                .filter { it.isNotBlank() }
-                            if (tags.isNotEmpty()) {
-                                onSave(title.ifBlank { "无标题" }, content, tags)
-                                onBack()
-                            }
+                                 .map { it.trim() }
+                                 .filter { it.isNotBlank() }
+                             if (tags.isNotEmpty()) {
+                                 onSave(title.ifBlank { "无标题" }, content, tags, images)
+                                 onBack()
+                             }
                         }
                     ) {
                         Icon(
@@ -118,28 +120,26 @@ fun NoteEditScreen(
                 }
             }
             
-            // 内容输入
-            OutlinedTextField(
-                value = content,
-                onValueChange = { content = it },
-                label = { Text("内容") },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(300.dp),
-                maxLines = Int.MAX_VALUE,
-                placeholder = { Text("在这里输入笔记内容...") }
+            // 富文本编辑器
+            RichTextEditor(
+                content = content,
+                images = images,
+                onContentChange = { content = it },
+                onImagesChange = { images = it },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = "请输入笔记内容"
             )
             
             // 保存按钮
             Button(
                 onClick = {
                     val tags = tagsText.split(",")
-                        .map { it.trim() }
-                        .filter { it.isNotBlank() }
-                    if (tags.isNotEmpty()) {
-                        onSave(title.ifBlank { "无标题" }, content, tags)
-                        onBack()
-                    }
+                         .map { it.trim() }
+                         .filter { it.isNotBlank() }
+                     if (tags.isNotEmpty()) {
+                         onSave(title.ifBlank { "无标题" }, content, tags, images)
+                         onBack()
+                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 enabled = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() }.isNotEmpty()

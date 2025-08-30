@@ -89,10 +89,10 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
         title: String,
         content: String,
         tags: List<String> = emptyList(),
-        hasImages: Boolean = false
+        images: List<com.example.noteapp.data.NoteImage> = emptyList()
     ) {
         viewModelScope.launch {
-            repository.createNote(title, content, tags, hasImages)
+            repository.createNote(title, content, tags, images)
         }
     }
     
@@ -101,10 +101,10 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
         title: String,
         content: String,
         tags: List<String> = emptyList(),
-        hasImages: Boolean = false
+        images: List<com.example.noteapp.data.NoteImage> = emptyList()
     ) {
         viewModelScope.launch {
-            repository.updateNoteContent(id, title, content, tags, hasImages)
+            repository.updateNote(id, title, content, tags, images)
         }
     }
     

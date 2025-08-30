@@ -2,6 +2,7 @@ package com.example.noteapp.repository
 
 import com.example.noteapp.data.NoteDao
 import com.example.noteapp.data.NoteEntity
+import com.example.noteapp.data.NoteImage
 import kotlinx.coroutines.flow.Flow
 import java.util.*
 
@@ -51,7 +52,7 @@ class NoteRepository(private val noteDao: NoteDao) {
         title: String,
         content: String,
         tags: List<String> = emptyList(),
-        hasImages: Boolean = false
+        images: List<NoteImage> = emptyList()
     ): NoteEntity {
         val currentTime = Date()
         val note = NoteEntity(
@@ -61,18 +62,19 @@ class NoteRepository(private val noteDao: NoteDao) {
             creationTime = currentTime,
             lastEditTime = currentTime,
             tags = tags,
-            hasImages = hasImages
+            images = images,
+            hasImages = images.isNotEmpty()
         )
         insertNote(note)
         return note
     }
     
-    suspend fun updateNoteContent(
+    suspend fun updateNote(
         id: String,
         title: String,
         content: String,
         tags: List<String> = emptyList(),
-        hasImages: Boolean = false
+        images: List<NoteImage> = emptyList()
     ) {
         val existingNote = getNoteById(id)
         existingNote?.let { note ->
@@ -80,7 +82,8 @@ class NoteRepository(private val noteDao: NoteDao) {
                 title = title,
                 content = content,
                 tags = tags,
-                hasImages = hasImages,
+                images = images,
+                hasImages = images.isNotEmpty(),
                 lastEditTime = Date()
             )
             updateNote(updatedNote)
