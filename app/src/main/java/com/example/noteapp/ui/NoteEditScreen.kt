@@ -54,11 +54,11 @@ fun NoteEditScreen(
                 actions = {
                     IconButton(
                         onClick = {
-                            if (title.isNotBlank()) {
-                                val tags = tagsText.split(",")
-                                    .map { it.trim() }
-                                    .filter { it.isNotBlank() }
-                                onSave(title, content, tags)
+                            val tags = tagsText.split(",")
+                                .map { it.trim() }
+                                .filter { it.isNotBlank() }
+                            if (tags.isNotEmpty()) {
+                                onSave(title.ifBlank { "无标题" }, content, tags)
                                 onBack()
                             }
                         }
@@ -133,16 +133,16 @@ fun NoteEditScreen(
             // 保存按钮
             Button(
                 onClick = {
-                    if (title.isNotBlank()) {
-                        val tags = tagsText.split(",")
-                            .map { it.trim() }
-                            .filter { it.isNotBlank() }
-                        onSave(title, content, tags)
+                    val tags = tagsText.split(",")
+                        .map { it.trim() }
+                        .filter { it.isNotBlank() }
+                    if (tags.isNotEmpty()) {
+                        onSave(title.ifBlank { "无标题" }, content, tags)
                         onBack()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
-                enabled = title.isNotBlank()
+                enabled = tagsText.split(",").map { it.trim() }.filter { it.isNotBlank() }.isNotEmpty()
             ) {
                 Text("保存笔记")
             }

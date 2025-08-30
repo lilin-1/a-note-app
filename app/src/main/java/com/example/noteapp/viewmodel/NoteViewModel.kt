@@ -8,6 +8,9 @@ import com.example.noteapp.repository.NoteRepository
 import com.example.noteapp.repository.SearchType
 import com.example.noteapp.service.AccountingService
 import com.example.noteapp.utils.TagParser
+import com.example.noteapp.ui.DateFilterType
+import com.example.noteapp.ui.DateRange
+import com.example.noteapp.ui.DateFilterUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 
@@ -24,16 +27,42 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
     private val _isSearching = MutableStateFlow(false)
     val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
     
+    // 日期筛选相关状态
+    private val _dateFilterType = MutableStateFlow(DateFilterType.ALL)
+    val dateFilterType: StateFlow<DateFilterType> = _dateFilterType.asStateFlow()
+    
+    private val _customDateRange = MutableStateFlow<DateRange?>(null)
+    val customDateRange: StateFlow<DateRange?> = _customDateRange.asStateFlow()
+    
+    // 日历标签筛选
+    private val _calendarSelectedTag = MutableStateFlow<String?>(null)
+    val calendarSelectedTag: StateFlow<String?> = _calendarSelectedTag.asStateFlow()
+    
     val notes: StateFlow<List<NoteEntity>> = combine(
         searchQuery.debounce(300).distinctUntilChanged(),
-        searchType
-    ) { query, type ->
-        Pair(query, type)
-    }.flatMapLatest { (query, type) ->
-        if (query.isBlank()) {
+        searchType,
+        dateFilterType,
+        customDateRange
+    ) { query, type, dateFilter, customRange ->
+        Triple(query, type, Pair(dateFilter, customRange))
+    }.flatMapLatest { (query, type, dateFilterData) ->
+        val (dateFilter, customRange) = dateFilterData
+        val baseFlow = if (query.isBlank()) {
             repository.getAllNotes()
         } else {
             repository.searchNotes(query, type)
+        }
+        
+        baseFlow.map { noteList ->
+            // 应用日期筛选
+            val dateRange = DateFilterUtils.getDateRange(dateFilter, customRange)
+            if (dateRange != null) {
+                noteList.filter { note ->
+                    note.creationTime >= dateRange.startDate && note.creationTime <= dateRange.endDate
+                }
+            } else {
+                noteList
+            }
         }
     }.stateIn(
         scope = viewModelScope,
@@ -126,6 +155,48 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
     
     fun getCommonAccountingTypes(): List<String> {
         return TagParser.getCommonAccountingTypes()
+    }
+    
+    // 日期筛选相关方法
+    fun updateDateFilterType(type: DateFilterType) {
+        _dateFilterType.value = type
+    }
+    
+    fun updateCustomDateRange(range: DateRange) {
+        _customDateRange.value = range
+    }
+    
+    fun clearDateFilter() {
+        _dateFilterType.value = DateFilterType.ALL
+        _customDateRange.value = null
+    }
+    
+    // 日历相关方法
+    fun updateCalendarSelectedTag(tag: String?) {
+        _calendarSelectedTag.value = tag
+    }
+    
+    fun getAllTags(): StateFlow<List<String>> {
+        return notes.map { noteList ->
+            noteList.flatMap { it.tags }.distinct().sorted()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    }
+    
+    fun getNotesForDate(date: java.util.Date): List<NoteEntity> {
+        val calendar = java.util.Calendar.getInstance()
+        calendar.time = date
+        val targetYear = calendar.get(java.util.Calendar.YEAR)
+        val targetDayOfYear = calendar.get(java.util.Calendar.DAY_OF_YEAR)
+        
+        return notes.value.filter { note ->
+            calendar.time = note.creationTime
+            calendar.get(java.util.Calendar.YEAR) == targetYear &&
+                    calendar.get(java.util.Calendar.DAY_OF_YEAR) == targetDayOfYear
+        }
     }
 }
 
