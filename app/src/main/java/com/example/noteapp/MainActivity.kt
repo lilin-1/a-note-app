@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -34,6 +35,7 @@ import com.example.noteapp.data.NoteEntity
 import com.example.noteapp.repository.NoteRepository
 import com.example.noteapp.ui.NoteEditScreen
 import com.example.noteapp.ui.NoteDetailScreen
+import com.example.noteapp.ui.BackupScreen
 import com.example.noteapp.ui.SearchComponent
 import com.example.noteapp.ui.AccountingStatsDialog
 import com.example.noteapp.ui.DateFilterComponent
@@ -153,6 +155,11 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    composable("backup") {
+                        BackupScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
@@ -190,11 +197,18 @@ fun MainScreen(
                 },
                 actions = {
                     IconButton(onClick = { navController.navigate("calendar") }) {
-                        Icon(
-                            imageVector = Icons.Default.CalendarToday,
-                            contentDescription = "日历视图"
-                        )
-                    }
+                            Icon(
+                                imageVector = Icons.Default.CalendarToday,
+                                contentDescription = "日历视图"
+                            )
+                        }
+                        
+                        IconButton(onClick = { navController.navigate("backup") }) {
+                            Icon(
+                                imageVector = Icons.Default.Backup,
+                                contentDescription = "数据备份"
+                            )
+                        }
                     IconButton(onClick = { showDateFilter = !showDateFilter }) {
                         Icon(
                             imageVector = Icons.Default.FilterList,

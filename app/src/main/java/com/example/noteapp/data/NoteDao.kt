@@ -38,4 +38,11 @@ interface NoteDao {
 
     @Query("DELETE FROM notes WHERE id = :id")
     suspend fun deleteNoteById(id: String)
+    
+    // 备份相关方法
+    @Query("SELECT * FROM notes ORDER BY lastEditTime DESC")
+    suspend fun getAllNotesForBackup(): List<NoteEntity>
+    
+    @Query("DELETE FROM notes")
+    suspend fun deleteAllNotes()
 }
