@@ -16,6 +16,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Photo
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,6 +31,9 @@ import com.example.noteapp.data.NoteDatabase
 import com.example.noteapp.data.NoteEntity
 import com.example.noteapp.repository.NoteRepository
 import com.example.noteapp.ui.NoteEditScreen
+import com.example.noteapp.ui.SearchComponent
+import com.example.noteapp.ui.AccountingStatsDialog
+import com.example.noteapp.repository.SearchType
 import com.example.noteapp.viewmodel.NoteViewModel
 import com.example.noteapp.viewmodel.NoteViewModelFactory
 import androidx.compose.ui.graphics.Color
@@ -130,8 +134,11 @@ fun MainScreen(
 ) {
     val notes by viewModel.notes.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
+    val searchType by viewModel.searchType.collectAsState()
     val isSearching by viewModel.isSearching.collectAsState()
+    val accountingStats by viewModel.getAccountingStatistics().collectAsState()
     var showSearchBar by remember { mutableStateOf(false) }
+    var showAccountingStats by remember { mutableStateOf(false) }
     
     val displayNotes = notes.map { it.toNote() }
 
@@ -146,6 +153,12 @@ fun MainScreen(
                     )
                 },
                 actions = {
+                    IconButton(onClick = { showAccountingStats = true }) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalance,
+                            contentDescription = "记账统计"
+                        )
+                    }
                     IconButton(onClick = { showSearchBar = !showSearchBar }) {
                         Icon(
                             imageVector = Icons.Default.Search,
@@ -172,25 +185,17 @@ fun MainScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
-            // 搜索栏
+            // 搜索组件
             if (showSearchBar) {
-                OutlinedTextField(
-                    value = searchQuery,
-                    onValueChange = viewModel::updateSearchQuery,
-                    label = { Text("搜索笔记") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    singleLine = true,
-                    trailingIcon = {
-                        if (searchQuery.isNotEmpty()) {
-                            IconButton(onClick = viewModel::clearSearch) {
-                                Icon(
-                                    imageVector = Icons.Default.Search,
-                                    contentDescription = "清除搜索"
-                                )
-                            }
-                        }
+                SearchComponent(
+                    searchQuery = searchQuery,
+                    searchType = searchType,
+                    isSearching = isSearching,
+                    onSearchQueryChange = viewModel::updateSearchQuery,
+                    onSearchTypeChange = viewModel::updateSearchType,
+                    onClearSearch = {
+                        viewModel.clearSearch()
+                        showSearchBar = false
                     }
                 )
             }
@@ -214,6 +219,14 @@ fun MainScreen(
                     )
                 }
             }
+        }
+        
+        // 记账统计对话框
+        if (showAccountingStats) {
+            AccountingStatsDialog(
+                statistics = accountingStats,
+                onDismiss = { showAccountingStats = false }
+            )
         }
     }
 }

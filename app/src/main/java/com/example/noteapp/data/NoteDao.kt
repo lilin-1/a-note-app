@@ -14,8 +14,18 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE title LIKE '%' || :query || '%' ORDER BY lastEditTime DESC")
     fun searchNotesByTitle(query: String): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes WHERE content LIKE '%' || :query || '%' ORDER BY lastEditTime DESC")
+    fun searchNotesByContent(query: String): Flow<List<NoteEntity>>
+
     @Query("SELECT * FROM notes WHERE tags LIKE '%' || :tag || '%' ORDER BY lastEditTime DESC")
     fun searchNotesByTag(tag: String): Flow<List<NoteEntity>>
+
+    @Query("""SELECT * FROM notes WHERE 
+        title LIKE '%' || :query || '%' OR 
+        content LIKE '%' || :query || '%' OR 
+        tags LIKE '%' || :query || '%' 
+        ORDER BY lastEditTime DESC""")
+    fun searchNotesAll(query: String): Flow<List<NoteEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertNote(note: NoteEntity)

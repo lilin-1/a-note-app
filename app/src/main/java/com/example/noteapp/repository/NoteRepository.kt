@@ -5,6 +5,13 @@ import com.example.noteapp.data.NoteEntity
 import kotlinx.coroutines.flow.Flow
 import java.util.*
 
+enum class SearchType {
+    ALL,      // 搜索所有字段
+    TITLE,    // 仅搜索标题
+    CONTENT,  // 仅搜索内容
+    TAG       // 仅搜索标签
+}
+
 class NoteRepository(private val noteDao: NoteDao) {
     
     fun getAllNotes(): Flow<List<NoteEntity>> = noteDao.getAllNotes()
@@ -14,8 +21,23 @@ class NoteRepository(private val noteDao: NoteDao) {
     fun searchNotesByTitle(query: String): Flow<List<NoteEntity>> = 
         noteDao.searchNotesByTitle(query)
     
+    fun searchNotesByContent(query: String): Flow<List<NoteEntity>> = 
+        noteDao.searchNotesByContent(query)
+    
     fun searchNotesByTag(tag: String): Flow<List<NoteEntity>> = 
         noteDao.searchNotesByTag(tag)
+    
+    fun searchNotesAll(query: String): Flow<List<NoteEntity>> = 
+        noteDao.searchNotesAll(query)
+    
+    fun searchNotes(query: String, searchType: SearchType): Flow<List<NoteEntity>> {
+        return when (searchType) {
+            SearchType.ALL -> searchNotesAll(query)
+            SearchType.TITLE -> searchNotesByTitle(query)
+            SearchType.CONTENT -> searchNotesByContent(query)
+            SearchType.TAG -> searchNotesByTag(query)
+        }
+    }
     
     suspend fun insertNote(note: NoteEntity) = noteDao.insertNote(note)
     
