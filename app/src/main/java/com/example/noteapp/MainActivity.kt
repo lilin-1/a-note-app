@@ -33,6 +33,7 @@ import com.example.noteapp.data.NoteDatabase
 import com.example.noteapp.data.NoteEntity
 import com.example.noteapp.repository.NoteRepository
 import com.example.noteapp.ui.NoteEditScreen
+import com.example.noteapp.ui.NoteDetailScreen
 import com.example.noteapp.ui.SearchComponent
 import com.example.noteapp.ui.AccountingStatsDialog
 import com.example.noteapp.ui.DateFilterComponent
@@ -60,6 +61,7 @@ fun NoteEntity.toNote(): Note {
         creationTime = this.creationTime,
         lastEditTime = this.lastEditTime,
         tags = this.tags,
+        images = this.images,
         hasImages = this.hasImages
     )
 }
@@ -72,6 +74,7 @@ data class Note(
     val creationTime: Date,
     val lastEditTime: Date,
     val tags: List<String>,
+    val images: List<com.example.noteapp.data.NoteImage> = emptyList(),
     val hasImages: Boolean = false
 )
 
@@ -133,6 +136,22 @@ class MainActivity : ComponentActivity() {
                                 // TODO: 可以跳转到笔记详情或其他操作
                             }
                         )
+                    }
+                    composable("note_detail/{noteId}") { backStackEntry ->
+                        val noteId = backStackEntry.arguments?.getString("noteId") ?: ""
+                        var note by remember { mutableStateOf<NoteEntity?>(null) }
+                        
+                        LaunchedEffect(noteId) {
+                            note = viewModel.getNoteById(noteId)
+                        }
+                        
+                        note?.let { noteEntity ->
+                            NoteDetailScreen(
+                                note = noteEntity,
+                                onBack = { navController.popBackStack() },
+                                onEdit = { navController.navigate("edit_note/${noteEntity.id}") }
+                            )
+                        }
                     }
                 }
             }
@@ -252,7 +271,7 @@ fun MainScreen(
                     NoteItem(
                         note = note,
                         onClick = {
-                            navController.navigate("edit_note/${note.id}")
+                            navController.navigate("note_detail/${note.id}")
                         },
                         onDelete = {
                             viewModel.deleteNote(notes.find { it.id == note.id }!!)

@@ -120,8 +120,8 @@ fun NoteEditScreen(
                 }
             }
             
-            // 富文本编辑器
-            RichTextEditor(
+            // 简单稳定的富文本编辑器
+            SimpleRichTextEditor(
                 content = content,
                 images = images,
                 onContentChange = { content = it },
