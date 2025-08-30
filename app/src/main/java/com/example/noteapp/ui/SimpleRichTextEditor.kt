@@ -1,8 +1,12 @@
 package com.example.noteapp.ui
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -25,13 +29,57 @@ fun SimpleRichTextEditor(
     modifier: Modifier = Modifier,
     placeholder: String = "请输入内容..."
 ) {
+    val context = LocalContext.current
     var showAddImageDialog by remember { mutableStateOf(false) }
+    var tempCameraFile by remember { mutableStateOf<java.io.File?>(null) }
+    
+    // 相册选择器
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            try {
+                val fileName = ImageUtils.generateImageFileName()
+                val targetFile = ImageUtils.getImageFile(context, fileName)
+                
+                val success = ImageUtils.compressImage(context, uri, targetFile)
+                if (success) {
+                    addImageToContent(fileName, content, images, onContentChange, onImagesChange)
+                }
+            } catch (e: Exception) {
+                // 图片处理失败，忽略错误
+            }
+        }
+    }
+    
+    // 相机拍摄器
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        if (success && tempCameraFile != null) {
+            try {
+                val fileName = ImageUtils.generateImageFileName()
+                val targetFile = ImageUtils.getImageFile(context, fileName)
+                val sourceUri = android.net.Uri.fromFile(tempCameraFile)
+                
+                val compressSuccess = ImageUtils.compressImage(context, sourceUri, targetFile)
+                if (compressSuccess) {
+                    addImageToContent(fileName, content, images, onContentChange, onImagesChange)
+                }
+                // 删除临时文件
+                tempCameraFile?.delete()
+            } catch (e: Exception) {
+                // 图片处理失败，忽略错误
+            }
+        }
+        tempCameraFile = null
+    }
     
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        // 简单的工具栏
+        // 工具栏
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -102,6 +150,8 @@ fun SimpleRichTextEditor(
                                     val imageMarker = "[IMG:${image.fileName}]"
                                     val newContent = content.replace(imageMarker, "")
                                     onContentChange(newContent)
+                                    // 删除图片文件
+                                    ImageUtils.deleteImageFile(context, image.fileName)
                                 }
                             ) {
                                 Text("删除")
@@ -113,39 +163,59 @@ fun SimpleRichTextEditor(
         }
     }
     
-    // 简单的添加图片对话框
+    // 图片选择对话框
     if (showAddImageDialog) {
         AlertDialog(
             onDismissRequest = { showAddImageDialog = false },
             title = { Text("添加图片") },
             text = {
-                Column {
-                    Text("选择添加图片的方式：")
-                    Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text("选择图片来源：")
                     
+                    // 相机拍摄
                     OutlinedButton(
                         onClick = {
-                            // 模拟添加图片
-                            val fileName = ImageUtils.generateImageFileName()
-                            val imageMarker = "[IMG:$fileName]"
-                            val newContent = if (content.isBlank()) {
-                                imageMarker
-                            } else {
-                                content + "\n" + imageMarker
+                            try {
+                                tempCameraFile = ImageUtils.createTempImageFile(context)
+                                val uri = ImageUtils.getFileUri(context, tempCameraFile!!)
+                                cameraLauncher.launch(uri)
+                                showAddImageDialog = false
+                            } catch (e: Exception) {
+                                // 相机启动失败，忽略错误
                             }
-                            onContentChange(newContent)
-                            
-                            val newImage = NoteImage(
-                                fileName = fileName,
-                                position = newContent.indexOf(imageMarker),
-                                insertTime = Date()
-                            )
-                            onImagesChange(images + newImage)
-                            showAddImageDialog = false
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("模拟添加图片")
+                        Icon(
+                            imageVector = Icons.Default.CameraAlt,
+                            contentDescription = "拍摄照片",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("拍摄照片")
+                    }
+                    
+                    // 相册选择
+                    OutlinedButton(
+                        onClick = {
+                            try {
+                                galleryLauncher.launch("image/*")
+                                showAddImageDialog = false
+                            } catch (e: Exception) {
+                                // 相册启动失败，忽略错误
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Image,
+                            contentDescription = "从相册选择",
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("从相册选择")
                     }
                 }
             },
@@ -157,4 +227,28 @@ fun SimpleRichTextEditor(
             }
         )
     }
+}
+
+// 添加图片到内容的辅助函数
+fun addImageToContent(
+    fileName: String,
+    content: String,
+    images: List<NoteImage>,
+    onContentChange: (String) -> Unit,
+    onImagesChange: (List<NoteImage>) -> Unit
+) {
+    val imageMarker = "[IMG:$fileName]"
+    val newContent = if (content.isBlank()) {
+        imageMarker
+    } else {
+        content + "\n" + imageMarker
+    }
+    onContentChange(newContent)
+    
+    val newImage = NoteImage(
+        fileName = fileName,
+        position = newContent.indexOf(imageMarker),
+        insertTime = Date()
+    )
+    onImagesChange(images + newImage)
 }
