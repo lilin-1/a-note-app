@@ -36,8 +36,7 @@ import com.example.noteapp.ui.NoteEditScreen
 import com.example.noteapp.ui.SearchComponent
 import com.example.noteapp.ui.AccountingStatsDialog
 import com.example.noteapp.ui.DateFilterComponent
-import com.example.noteapp.ui.CalendarViewComponent
-import com.example.noteapp.ui.CalendarTagFilterDialog
+import com.example.noteapp.ui.CalendarScreen
 import com.example.noteapp.ui.DateFilterType
 import com.example.noteapp.repository.SearchType
 import com.example.noteapp.viewmodel.NoteViewModel
@@ -126,6 +125,15 @@ class MainActivity : ComponentActivity() {
                             )
                         }
                     }
+                    composable("calendar") {
+                        CalendarScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() },
+                            onDateSelected = { date, notes ->
+                                // TODO: 可以跳转到笔记详情或其他操作
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -145,14 +153,9 @@ fun MainScreen(
     val accountingStats by viewModel.getAccountingStatistics().collectAsState()
     val dateFilterType by viewModel.dateFilterType.collectAsState()
     val customDateRange by viewModel.customDateRange.collectAsState()
-    val calendarSelectedTag by viewModel.calendarSelectedTag.collectAsState()
-    val allTags by viewModel.getAllTags().collectAsState()
-    
     var showSearchBar by remember { mutableStateOf(false) }
     var showAccountingStats by remember { mutableStateOf(false) }
     var showDateFilter by remember { mutableStateOf(false) }
-    var showCalendarView by remember { mutableStateOf(false) }
-    var showCalendarTagFilter by remember { mutableStateOf(false) }
     
     val displayNotes = notes.map { it.toNote() }
 
@@ -167,7 +170,7 @@ fun MainScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { showCalendarView = !showCalendarView }) {
+                    IconButton(onClick = { navController.navigate("calendar") }) {
                         Icon(
                             imageVector = Icons.Default.CalendarToday,
                             contentDescription = "日历视图"
@@ -237,44 +240,7 @@ fun MainScreen(
                 )
             }
             
-            // 日历视图组件
-            if (showCalendarView) {
-                Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    // 日历标签筛选按钮
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "日历视图",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
-                        )
-                        
-                        OutlinedButton(
-                            onClick = { showCalendarTagFilter = true }
-                        ) {
-                            Text(
-                                text = calendarSelectedTag ?: "选择标签"
-                            )
-                        }
-                    }
-                    
-                    CalendarViewComponent(
-                        notes = notes,
-                        selectedTag = calendarSelectedTag,
-                        onDateSelected = { date ->
-                            val dayNotes = viewModel.getNotesForDate(date)
-                            // TODO: 显示当日笔记详情
-                        }
-                    )
-                }
-            }
-            
+
             // 笔记列表
             LazyColumn(
                 modifier = Modifier
@@ -304,18 +270,7 @@ fun MainScreen(
             )
         }
         
-        // 日历标签筛选对话框
-        if (showCalendarTagFilter) {
-            CalendarTagFilterDialog(
-                allTags = allTags,
-                selectedTag = calendarSelectedTag,
-                onTagSelected = { tag ->
-                    viewModel.updateCalendarSelectedTag(tag)
-                    showCalendarTagFilter = false
-                },
-                onDismiss = { showCalendarTagFilter = false }
-            )
-        }
+
     }
 }
 
