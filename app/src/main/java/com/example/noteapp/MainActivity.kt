@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.AccountBalance
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,7 @@ import com.example.noteapp.repository.NoteRepository
 import com.example.noteapp.ui.NoteEditScreen
 import com.example.noteapp.ui.NoteDetailScreen
 import com.example.noteapp.ui.BackupScreen
+import com.example.noteapp.ui.AccountingStatsScreen
 import com.example.noteapp.ui.SearchComponent
 import com.example.noteapp.ui.AccountingStatsDialog
 import com.example.noteapp.ui.DateFilterComponent
@@ -135,7 +137,10 @@ class MainActivity : ComponentActivity() {
                             viewModel = viewModel,
                             onBack = { navController.popBackStack() },
                             onDateSelected = { date, notes ->
-                                // TODO: 可以跳转到笔记详情或其他操作
+                                // 暂时不处理，由CalendarScreen内部处理
+                            },
+                            onNoteClick = { noteId ->
+                                navController.navigate("note_detail/$noteId")
                             }
                         )
                     }
@@ -157,6 +162,13 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("backup") {
                         BackupScreen(
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
+                    composable("accounting_stats") {
+                        val notes by viewModel.notes.collectAsState()
+                        AccountingStatsScreen(
+                            notes = notes,
                             onBack = { navController.popBackStack() }
                         )
                     }
@@ -182,6 +194,7 @@ fun MainScreen(
     var showSearchBar by remember { mutableStateOf(false) }
     var showAccountingStats by remember { mutableStateOf(false) }
     var showDateFilter by remember { mutableStateOf(false) }
+    var showFunctionMenu by remember { mutableStateOf(false) }
     
     val displayNotes = notes.map { it.toNote() }
 
@@ -196,36 +209,84 @@ fun MainScreen(
                     )
                 },
                 actions = {
-                    IconButton(onClick = { navController.navigate("calendar") }) {
-                            Icon(
-                                imageVector = Icons.Default.CalendarToday,
-                                contentDescription = "日历视图"
-                            )
-                        }
-                        
-                        IconButton(onClick = { navController.navigate("backup") }) {
-                            Icon(
-                                imageVector = Icons.Default.Backup,
-                                contentDescription = "数据备份"
-                            )
-                        }
-                    IconButton(onClick = { showDateFilter = !showDateFilter }) {
-                        Icon(
-                            imageVector = Icons.Default.FilterList,
-                            contentDescription = "日期筛选"
-                        )
-                    }
-                    IconButton(onClick = { showAccountingStats = true }) {
-                        Icon(
-                            imageVector = Icons.Default.AccountBalance,
-                            contentDescription = "记账统计"
-                        )
-                    }
+                    // 搜索按钮（保持独立）
                     IconButton(onClick = { showSearchBar = !showSearchBar }) {
                         Icon(
                             imageVector = Icons.Default.Search,
                             contentDescription = "搜索"
                         )
+                    }
+                    
+                    // 功能菜单按钮
+                    Box {
+                        IconButton(onClick = { showFunctionMenu = !showFunctionMenu }) {
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "功能菜单"
+                            )
+                        }
+                        
+                        // 功能下拉菜单
+                        DropdownMenu(
+                            expanded = showFunctionMenu,
+                            onDismissRequest = { showFunctionMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("日历视图") },
+                                onClick = {
+                                    showFunctionMenu = false
+                                    navController.navigate("calendar")
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = "日历视图"
+                                    )
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = { Text("记账统计") },
+                                onClick = {
+                                    showFunctionMenu = false
+                                    navController.navigate("accounting_stats")
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.AccountBalance,
+                                        contentDescription = "记账统计"
+                                    )
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = { Text("日期筛选") },
+                                onClick = {
+                                    showFunctionMenu = false
+                                    showDateFilter = !showDateFilter
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.FilterList,
+                                        contentDescription = "日期筛选"
+                                    )
+                                }
+                            )
+                            
+                            DropdownMenuItem(
+                                text = { Text("数据备份") },
+                                onClick = {
+                                    showFunctionMenu = false
+                                    navController.navigate("backup")
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Backup,
+                                        contentDescription = "数据备份"
+                                    )
+                                }
+                            )
+                        }
                     }
                 }
             )

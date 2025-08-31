@@ -2,9 +2,12 @@ package com.example.noteapp.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -14,6 +17,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.noteapp.data.NoteEntity
 import com.example.noteapp.viewmodel.NoteViewModel
+import com.example.noteapp.ui.DateRange
+import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -21,7 +26,8 @@ import java.util.*
 fun CalendarScreen(
     viewModel: NoteViewModel,
     onBack: () -> Unit,
-    onDateSelected: (Date, List<NoteEntity>) -> Unit
+    onDateSelected: (Date, List<NoteEntity>) -> Unit,
+    onNoteClick: (String) -> Unit
 ) {
     val notes by viewModel.notes.collectAsState()
     val calendarSelectedTag by viewModel.calendarSelectedTag.collectAsState()
@@ -31,6 +37,7 @@ fun CalendarScreen(
     var showDayNotesDialog by remember { mutableStateOf(false) }
     var selectedDayNotes by remember { mutableStateOf<List<NoteEntity>>(emptyList()) }
     var selectedDate by remember { mutableStateOf<Date?>(null) }
+    var showTagStatistics by remember { mutableStateOf(false) }
     
     Scaffold(
         topBar = {
@@ -51,6 +58,19 @@ fun CalendarScreen(
                     }
                 },
                 actions = {
+                    // 统计按钮
+                    if (calendarSelectedTag != null) {
+                        IconButton(
+                            onClick = { showTagStatistics = true }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.BarChart,
+                                contentDescription = "标签统计"
+                            )
+                        }
+                    }
+                    
+                    // 标签筛选按钮
                     OutlinedButton(
                         onClick = { showCalendarTagFilter = true },
                         modifier = Modifier.padding(end = 8.dp)
@@ -145,8 +165,17 @@ fun CalendarScreen(
                 onDismiss = { showDayNotesDialog = false },
                 onNoteClick = { note ->
                     showDayNotesDialog = false
-                    onDateSelected(selectedDate!!, selectedDayNotes)
+                    onNoteClick(note.id)
                 }
+            )
+        }
+        
+        // 标签统计对话框
+        if (showTagStatistics && calendarSelectedTag != null) {
+            TagStatisticsDialog(
+                tag = calendarSelectedTag!!,
+                notes = notes,
+                onDismiss = { showTagStatistics = false }
             )
         }
     }
@@ -238,6 +267,255 @@ fun DayNotesDialog(
         confirmButton = {
             TextButton(onClick = onDismiss) {
                 Text("关闭")
+            }
+        }
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun TagStatisticsDialog(
+    tag: String,
+    notes: List<NoteEntity>,
+    onDismiss: () -> Unit
+) {
+    var selectedDateRange by remember { mutableStateOf<DateRange?>(null) }
+    var showDateRangePicker by remember { mutableStateOf(false) }
+    
+    // 筛选包含指定标签的笔记
+    val taggedNotes = remember(notes, tag, selectedDateRange) {
+        val filteredByTag = notes.filter { note -> note.tags.contains(tag) }
+        
+        if (selectedDateRange != null) {
+            filteredByTag.filter { note ->
+                note.creationTime >= selectedDateRange!!.startDate &&
+                note.creationTime <= selectedDateRange!!.endDate
+            }
+        } else {
+            filteredByTag
+        }
+    }
+    
+    // 按日期分组统计
+    val dailyStats = remember(taggedNotes) {
+        taggedNotes.groupBy { note ->
+            val calendar = Calendar.getInstance().apply { time = note.creationTime }
+            Triple(
+                calendar.get(Calendar.YEAR),
+                calendar.get(Calendar.MONTH),
+                calendar.get(Calendar.DAY_OF_MONTH)
+            )
+        }.mapKeys { (dateTriple, _) ->
+            Calendar.getInstance().apply {
+                set(dateTriple.first, dateTriple.second, dateTriple.third)
+            }.time
+        }.toSortedMap(compareByDescending { it })
+    }
+    
+    val dateFormatter = remember { SimpleDateFormat("yyyy年MM月dd日", Locale.getDefault()) }
+    val rangeFormatter = remember { SimpleDateFormat("MM-dd", Locale.getDefault()) }
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Column {
+                Text("标签统计：$tag")
+                if (selectedDateRange != null) {
+                    Text(
+                        text = "${rangeFormatter.format(selectedDateRange!!.startDate)} 至 ${rangeFormatter.format(selectedDateRange!!.endDate)}",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+        },
+        text = {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                // 日期范围选择
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "统计范围：${selectedDateRange?.let { "${rangeFormatter.format(it.startDate)} 至 ${rangeFormatter.format(it.endDate)}" } ?: "全部时间"}",
+                        fontSize = 14.sp
+                    )
+                    
+                    Row {
+                        TextButton(
+                            onClick = { showDateRangePicker = true }
+                        ) {
+                            Text("选择日期")
+                        }
+                        
+                        if (selectedDateRange != null) {
+                            TextButton(
+                                onClick = { selectedDateRange = null }
+                            ) {
+                                Text("清除")
+                            }
+                        }
+                    }
+                }
+                
+                Divider()
+                
+                // 统计概览
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.3f)
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "统计概览",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "总笔记数：${taggedNotes.size} 条",
+                            fontSize = 12.sp
+                        )
+                        Text(
+                            text = "记录天数：${dailyStats.size} 天",
+                            fontSize = 12.sp
+                        )
+                        if (dailyStats.isNotEmpty()) {
+                            val avgPerDay = taggedNotes.size.toFloat() / dailyStats.size
+                            Text(
+                                text = "平均每天：%.1f 条".format(avgPerDay),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+                
+                // 每日统计列表
+                if (dailyStats.isNotEmpty()) {
+                    Text(
+                        text = "每日统计",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    
+                    LazyColumn(
+                        modifier = Modifier.heightIn(max = 200.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(dailyStats.toList()) { (date, dayNotes) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = dateFormatter.format(date),
+                                    fontSize = 12.sp
+                                )
+                                Text(
+                                    text = "${dayNotes.size} 条",
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("关闭")
+            }
+        }
+    )
+    
+    // 日期范围选择器
+    if (showDateRangePicker) {
+        DateRangePickerDialog(
+            onDateRangeSelected = { startDate, endDate ->
+                selectedDateRange = DateRange(startDate, endDate)
+                showDateRangePicker = false
+            },
+            onDismiss = { showDateRangePicker = false }
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun DateRangePickerDialog(
+    onDateRangeSelected: (Date, Date) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var startDate by remember { mutableStateOf<Date?>(null) }
+    var endDate by remember { mutableStateOf<Date?>(null) }
+    var isSelectingStartDate by remember { mutableStateOf(true) }
+    
+    val datePickerState = rememberDatePickerState()
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(if (isSelectingStartDate) "选择开始日期" else "选择结束日期")
+        },
+        text = {
+            Column {
+                if (startDate != null || endDate != null) {
+                    val formatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    Text(
+                        text = "开始：${startDate?.let { formatter.format(it) } ?: "未选择"}\n" +
+                                "结束：${endDate?.let { formatter.format(it) } ?: "未选择"}",
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(bottom = 8.dp)
+                    )
+                }
+                
+                DatePicker(state = datePickerState)
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        val selectedDate = Date(millis)
+                        if (isSelectingStartDate) {
+                            startDate = selectedDate
+                            isSelectingStartDate = false
+                        } else {
+                            endDate = selectedDate
+                            val finalStartDate = startDate ?: selectedDate
+                            val finalEndDate = selectedDate
+                            
+                            // 确保开始日期不晚于结束日期
+                            if (finalStartDate <= finalEndDate) {
+                                onDateRangeSelected(finalStartDate, finalEndDate)
+                            } else {
+                                onDateRangeSelected(finalEndDate, finalStartDate)
+                            }
+                        }
+                    }
+                },
+                enabled = datePickerState.selectedDateMillis != null
+            ) {
+                Text(if (isSelectingStartDate) "下一步" else "确定")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("取消")
             }
         }
     )

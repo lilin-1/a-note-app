@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronLeft
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -274,31 +276,84 @@ fun CalendarTagFilterDialog(
     onTagSelected: (String?) -> Unit,
     onDismiss: () -> Unit
 ) {
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // 筛选标签
+    val filteredTags = remember(allTags, searchQuery) {
+        if (searchQuery.isBlank()) {
+            allTags
+        } else {
+            allTags.filter { it.contains(searchQuery, ignoreCase = true) }
+        }
+    }
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("选择标签筛选") },
         text = {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                modifier = Modifier.heightIn(max = 300.dp)
+            Column(
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // 全部选项
-                item {
-                    FilterChip(
-                        onClick = { onTagSelected(null) },
-                        label = { Text("全部") },
-                        selected = selectedTag == null
-                    )
+                // 搜索框
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    label = { Text("搜索标签") },
+                    placeholder = { Text("输入标签名称...") },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = "搜索"
+                        )
+                    },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(
+                                onClick = { searchQuery = "" }
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "清除"
+                                )
+                            }
+                        }
+                    }
+                )
+                
+                // 标签列表
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.heightIn(max = 300.dp)
+                ) {
+                    // 全部选项
+                    item {
+                        FilterChip(
+                            onClick = { onTagSelected(null) },
+                            label = { Text("全部") },
+                            selected = selectedTag == null
+                        )
+                    }
+                    
+                    // 筛选后的标签选项
+                    items(filteredTags) { tag ->
+                        FilterChip(
+                            onClick = { onTagSelected(tag) },
+                            label = { Text(tag) },
+                            selected = selectedTag == tag
+                        )
+                    }
                 }
                 
-                // 标签选项
-                items(allTags) { tag ->
-                    FilterChip(
-                        onClick = { onTagSelected(tag) },
-                        label = { Text(tag) },
-                        selected = selectedTag == tag
+                // 搜索结果提示
+                if (searchQuery.isNotEmpty()) {
+                    Text(
+                        text = "找到 ${filteredTags.size} 个标签",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
