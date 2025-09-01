@@ -19,35 +19,25 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.noteapp.utils.BackupUtils
-import kotlinx.coroutines.launch
+import com.example.noteapp.viewmodel.BackupViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BackupScreen(
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    viewModel: BackupViewModel = viewModel()
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    
-    var isBackupInProgress by remember { mutableStateOf(false) }
-    var isRestoreInProgress by remember { mutableStateOf(false) }
-    var backupResult by remember { mutableStateOf<BackupUtils.BackupResult?>(null) }
-    var restoreResult by remember { mutableStateOf<BackupUtils.RestoreResult?>(null) }
-    var showRestoreConfirmDialog by remember { mutableStateOf(false) }
-    var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
-    var backupMetadata by remember { mutableStateOf<BackupUtils.BackupMetadata?>(null) }
+    val uiState by viewModel.uiState.collectAsState()
     
     // 备份文件创建器
     val backupLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/zip")
     ) { uri ->
         uri?.let {
-            scope.launch {
-                isBackupInProgress = true
-                backupResult = BackupUtils.createBackup(context, it)
-                isBackupInProgress = false
-            }
+            viewModel.createBackup(context, it)
         }
     }
     
@@ -56,19 +46,7 @@ fun BackupScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
         uri?.let {
-            scope.launch {
-                val metadata = BackupUtils.validateBackupFile(context, it)
-                if (metadata != null) {
-                    backupMetadata = metadata
-                    pendingRestoreUri = it
-                    showRestoreConfirmDialog = true
-                } else {
-                    restoreResult = BackupUtils.RestoreResult(
-                        success = false,
-                        message = "无效的备份文件"
-                    )
-                }
-            }
+            viewModel.validateBackupFile(context, it)
         }
     }
     
@@ -158,10 +136,10 @@ fun BackupScreen(
                             val fileName = BackupUtils.generateBackupFileName()
                             backupLauncher.launch(fileName)
                         },
-                        enabled = !isBackupInProgress && !isRestoreInProgress,
+                        enabled = !uiState.isBackupInProgress && !uiState.isRestoreInProgress,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (isBackupInProgress) {
+                        if (uiState.isBackupInProgress) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp
@@ -180,7 +158,7 @@ fun BackupScreen(
                     }
                     
                     // 备份结果显示
-                    backupResult?.let { result ->
+                    uiState.backupResult?.let { result ->
                         Card(
                             colors = CardDefaults.cardColors(
                                 containerColor = if (result.success) {
@@ -238,10 +216,10 @@ fun BackupScreen(
                         onClick = {
                             restoreLauncher.launch("application/zip")
                         },
-                        enabled = !isBackupInProgress && !isRestoreInProgress,
+                        enabled = !uiState.isBackupInProgress && !uiState.isRestoreInProgress,
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        if (isRestoreInProgress) {
+                        if (uiState.isRestoreInProgress) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(16.dp),
                                 strokeWidth = 2.dp
@@ -260,7 +238,7 @@ fun BackupScreen(
                     }
                     
                     // 恢复结果显示
-                    restoreResult?.let { result ->
+                    uiState.restoreResult?.let { result ->
                         Card(
                             colors = CardDefaults.cardColors(
                                 containerColor = if (result.success) {
@@ -330,12 +308,10 @@ fun BackupScreen(
     }
     
     // 恢复确认对话框
-    if (showRestoreConfirmDialog && backupMetadata != null && pendingRestoreUri != null) {
+    if (uiState.showRestoreConfirmDialog && uiState.backupMetadata != null && uiState.pendingRestoreUri != null) {
         AlertDialog(
             onDismissRequest = {
-                showRestoreConfirmDialog = false
-                backupMetadata = null
-                pendingRestoreUri = null
+                viewModel.dismissRestoreDialog()
             },
             title = { Text("确认恢复数据") },
             text = {
@@ -343,10 +319,10 @@ fun BackupScreen(
                     Text("备份文件信息：")
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "• 备份时间：${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(backupMetadata!!.timestamp))}\n" +
-                                "• 笔记数量：${backupMetadata!!.noteCount}\n" +
-                                "• 图片数量：${backupMetadata!!.imageCount}\n" +
-                                "• 备份版本：${backupMetadata!!.version}",
+                        text = "• 备份时间：${java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(uiState.backupMetadata!!.timestamp))}\n" +
+                                "• 笔记数量：${uiState.backupMetadata!!.noteCount}\n" +
+                                "• 图片数量：${uiState.backupMetadata!!.imageCount}\n" +
+                                "• 备份版本：${uiState.backupMetadata!!.version}",
                         fontSize = 14.sp
                     )
                     Spacer(modifier = Modifier.height(12.dp))
@@ -360,18 +336,7 @@ fun BackupScreen(
                 Column {
                     Button(
                         onClick = {
-                            scope.launch {
-                                isRestoreInProgress = true
-                                restoreResult = BackupUtils.restoreFromBackup(
-                                    context,
-                                    pendingRestoreUri!!,
-                                    replaceExisting = true
-                                )
-                                isRestoreInProgress = false
-                                showRestoreConfirmDialog = false
-                                backupMetadata = null
-                                pendingRestoreUri = null
-                            }
+                            viewModel.restoreFromBackup(context, replaceExisting = true)
                         },
                         colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.error
@@ -384,18 +349,7 @@ fun BackupScreen(
                     
                     OutlinedButton(
                         onClick = {
-                            scope.launch {
-                                isRestoreInProgress = true
-                                restoreResult = BackupUtils.restoreFromBackup(
-                                    context,
-                                    pendingRestoreUri!!,
-                                    replaceExisting = false
-                                )
-                                isRestoreInProgress = false
-                                showRestoreConfirmDialog = false
-                                backupMetadata = null
-                                pendingRestoreUri = null
-                            }
+                            viewModel.restoreFromBackup(context, replaceExisting = false)
                         }
                     ) {
                         Text("合并数据")
@@ -405,9 +359,7 @@ fun BackupScreen(
             dismissButton = {
                 TextButton(
                     onClick = {
-                        showRestoreConfirmDialog = false
-                        backupMetadata = null
-                        pendingRestoreUri = null
+                        viewModel.dismissRestoreDialog()
                     }
                 ) {
                     Text("取消")

@@ -12,7 +12,7 @@ import com.example.noteapp.ui.DateRange
 data class MainScreenState(
     val notes: List<Note> = emptyList(),
     val searchQuery: String = "",
-    val searchType: SearchType = SearchType.TITLE,
+    val searchType: SearchType = SearchType.ALL,
     val isSearching: Boolean = false,
     val showSearchBar: Boolean = false,
     val showFunctionMenu: Boolean = false,

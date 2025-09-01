@@ -44,17 +44,10 @@ class MainScreenViewModel(
                     searchType = type,
                     isSearching = searching
                 )
-            }
+            }.collect {}
         }
 
-        // 监听记账统计数据
-        viewModelScope.launch {
-            noteViewModel.getAccountingStatistics().collect { stats ->
-                _uiState.value = _uiState.value.copy(
-                    accountingStats = stats
-                )
-            }
-        }
+        // 记账统计数据按需加载，不在初始化时监听以提升性能
 
         // 监听日期筛选状态
         viewModelScope.launch {
@@ -66,7 +59,7 @@ class MainScreenViewModel(
                     dateFilterType = filterType,
                     customDateRange = dateRange
                 )
-            }
+            }.collect {}
         }
     }
 
@@ -86,9 +79,14 @@ class MainScreenViewModel(
                 )
             }
             is MainScreenEvent.ToggleAccountingStats -> {
+                val shouldShow = !_uiState.value.showAccountingStats
                 _uiState.value = _uiState.value.copy(
-                    showAccountingStats = !_uiState.value.showAccountingStats
+                    showAccountingStats = shouldShow
                 )
+                // 只在需要显示时才加载统计数据
+                if (shouldShow && _uiState.value.accountingStats == null) {
+                    loadAccountingStats()
+                }
             }
             is MainScreenEvent.ClearSearch -> {
                 noteViewModel.clearSearch()
@@ -125,5 +123,18 @@ class MainScreenViewModel(
      */
     fun closeFunctionMenu() {
         _uiState.value = _uiState.value.copy(showFunctionMenu = false)
+    }
+
+    /**
+     * 按需加载记账统计数据
+     */
+    fun loadAccountingStats() {
+        viewModelScope.launch {
+            noteViewModel.getAccountingStatistics().collect { stats ->
+                _uiState.value = _uiState.value.copy(
+                    accountingStats = stats
+                )
+            }
+        }
     }
 }

@@ -46,6 +46,7 @@ import com.example.noteapp.ui.DateFilterType
 import com.example.noteapp.repository.SearchType
 import com.example.noteapp.viewmodel.NoteViewModel
 import com.example.noteapp.viewmodel.NoteViewModelFactory
+import com.example.noteapp.viewmodel.BackupViewModel
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -95,10 +96,10 @@ class MainActivity : ComponentActivity() {
                     }
                     composable("edit_note/{noteId}") { backStackEntry ->
                         val noteId = backStackEntry.arguments?.getString("noteId") ?: ""
-                        var note by remember { mutableStateOf<NoteEntity?>(null) }
-                        
-                        LaunchedEffect(noteId) {
-                            note = viewModel.getNoteById(noteId)
+                        // 从当前笔记列表中直接查找，避免异步加载延迟
+                        val notes by viewModel.notes.collectAsState()
+                        val note = remember(noteId, notes) {
+                            notes.find { it.id == noteId }
                         }
                         
                         note?.let { noteEntity ->
@@ -136,8 +137,10 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                     composable("backup") {
+                        val backupViewModel = viewModel<BackupViewModel>()
                         BackupScreen(
-                            onBack = { navController.popBackStack() }
+                            onBack = { navController.popBackStack() },
+                            viewModel = backupViewModel
                         )
                     }
                     composable("accounting_stats") {
