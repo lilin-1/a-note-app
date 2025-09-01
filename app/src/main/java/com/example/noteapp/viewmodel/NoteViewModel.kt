@@ -251,6 +251,13 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
         )
     }
     
+    /**
+     * 获取所有笔记（不受筛选影响）
+     */
+    fun getAllNotes(): Flow<List<NoteEntity>> {
+        return repository.getAllNotes()
+    }
+    
     fun getNotesForDate(date: java.util.Date): List<NoteEntity> {
         val calendar = java.util.Calendar.getInstance()
         calendar.time = date

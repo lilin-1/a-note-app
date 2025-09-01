@@ -42,6 +42,7 @@ import com.example.noteapp.ui.SearchComponent
 import com.example.noteapp.ui.AccountingStatsDialog
 import com.example.noteapp.ui.DateFilterComponent
 import com.example.noteapp.ui.CalendarScreen
+import com.example.noteapp.ui.DateFilterScreen
 import com.example.noteapp.ui.DateFilterType
 import com.example.noteapp.repository.SearchType
 import com.example.noteapp.viewmodel.NoteViewModel
@@ -175,6 +176,12 @@ class MainActivity : ComponentActivity() {
                             onBack = { navController.popBackStack() }
                         )
                     }
+                    composable("date_filter") {
+                        DateFilterScreen(
+                            viewModel = viewModel,
+                            onBack = { navController.popBackStack() }
+                        )
+                    }
                 }
             }
         }
@@ -196,7 +203,6 @@ fun MainScreen(
     val customDateRange by viewModel.customDateRange.collectAsState()
     var showSearchBar by remember { mutableStateOf(false) }
     var showAccountingStats by remember { mutableStateOf(false) }
-    var showDateFilter by remember { mutableStateOf(false) }
     var showFunctionMenu by remember { mutableStateOf(false) }
     
     val displayNotes = notes.map { it.toNote() }
@@ -266,7 +272,7 @@ fun MainScreen(
                                 text = { Text("日期筛选") },
                                 onClick = {
                                     showFunctionMenu = false
-                                    showDateFilter = !showDateFilter
+                                    navController.navigate("date_filter")
                                 },
                                 leadingIcon = {
                                     Icon(
@@ -326,16 +332,7 @@ fun MainScreen(
                 )
             }
             
-            // 日期筛选组件
-            if (showDateFilter) {
-                DateFilterComponent(
-                    selectedType = dateFilterType,
-                    customDateRange = customDateRange,
-                    onTypeSelected = viewModel::updateDateFilterType,
-                    onCustomDateRangeSelected = viewModel::updateCustomDateRange,
-                    modifier = Modifier.padding(16.dp)
-                )
-            }
+            // 日期筛选已移至独立界面
             
 
             // 笔记列表
