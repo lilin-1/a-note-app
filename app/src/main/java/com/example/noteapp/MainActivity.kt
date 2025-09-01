@@ -53,6 +53,9 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.noteapp.ui.theme.NoteappTheme
+import com.example.noteapp.ui.common.UIComponents
+import com.example.noteapp.ui.common.DateFormatters
+import com.example.noteapp.ui.common.Dimensions
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -374,153 +377,162 @@ fun NoteItem(
     onClick: () -> Unit = {},
     onDelete: () -> Unit = {}
 ) {
-    val dateFormatter = remember { SimpleDateFormat("MM-dd HH:mm", Locale.getDefault()) }
-    val creationFormatter = remember { SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault()) }
     var showMenu by remember { mutableStateOf(false) }
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 4.dp)
+            .padding(vertical = Dimensions.paddingSmall)
             .clickable { onClick() },
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(Dimensions.cornerRadiusMedium)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
+                .padding(Dimensions.paddingLarge),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.Top
         ) {
-            Column(
+            NoteContent(
+                note = note,
                 modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = note.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                Text(
-                    text = note.content,
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                // 标签显示
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                ) {
-                    note.tags.take(2).forEach { tag ->
-                        Text(
-                            text = tag,
-                            fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier
-                                .background(
-                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                                    shape = RoundedCornerShape(4.dp)
-                                )
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                    if (note.tags.size > 2) {
-                        Text(
-                            text = "+${note.tags.size - 2}",
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                // 时间信息
-                Column {
-                    Text(
-                        text = "创建: ${creationFormatter.format(note.creationTime)}",
-                        fontSize = 11.sp,
-                        color = Color.Gray
-                    )
-                    if (note.creationTime != note.lastEditTime) {
-                        Text(
-                            text = "修改: ${creationFormatter.format(note.lastEditTime)}",
-                            fontSize = 11.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-            }
+            )
             
-            // 右侧操作区域
-            Column(
-                horizontalAlignment = Alignment.End,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            NoteActions(
+                note = note,
+                showMenu = showMenu,
+                onMenuToggle = { showMenu = !showMenu },
+                onDelete = {
+                    showMenu = false
+                    onDelete()
+                }
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoteContent(
+    note: Note,
+    modifier: Modifier = Modifier
+) {
+    Column(modifier = modifier) {
+        // 标题
+        Text(
+            text = note.title,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        
+        Spacer(modifier = Modifier.height(Dimensions.paddingSmall))
+        
+        // 内容
+        Text(
+            text = note.content,
+            fontSize = 14.sp,
+            color = Color.Gray,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
+        
+        Spacer(modifier = Modifier.height(Dimensions.paddingMedium))
+        
+        // 标签
+        UIComponents.TagList(
+            tags = note.tags,
+            maxVisible = 2
+        )
+        
+        Spacer(modifier = Modifier.height(Dimensions.paddingSmall))
+        
+        // 时间信息
+        NoteTimeInfo(note = note)
+    }
+}
+
+@Composable
+private fun NoteTimeInfo(note: Note) {
+    Column {
+        Text(
+            text = "创建: ${DateFormatters.fullDateFormatter.format(note.creationTime)}",
+            fontSize = 11.sp,
+            color = Color.Gray
+        )
+        if (note.creationTime != note.lastEditTime) {
+            Text(
+                text = "修改: ${DateFormatters.fullDateFormatter.format(note.lastEditTime)}",
+                fontSize = 11.sp,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+private fun NoteActions(
+    note: Note,
+    showMenu: Boolean,
+    onMenuToggle: () -> Unit,
+    onDelete: () -> Unit
+) {
+    Column(
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(Dimensions.paddingMedium)
+    ) {
+        // 管理按钮
+        Box {
+            UIComponents.IconButtonWithDescription(
+                icon = Icons.Default.MoreVert,
+                contentDescription = "管理笔记",
+                onClick = onMenuToggle,
+                modifier = Modifier.size(Dimensions.iconSizeLarge),
+                size = Dimensions.iconSizeMedium
+            )
+            
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = onMenuToggle
             ) {
-                // 管理按钮
-                Box {
-                    IconButton(
-                        onClick = { showMenu = !showMenu },
-                        modifier = Modifier.size(32.dp)
-                    ) {
+                DropdownMenuItem(
+                    text = { Text("删除笔记") },
+                    onClick = onDelete,
+                    leadingIcon = {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
-                            contentDescription = "管理笔记",
-                            modifier = Modifier.size(20.dp)
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "删除"
                         )
                     }
-                    
-                    // 下拉菜单
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("删除笔记") },
-                            onClick = {
-                                showMenu = false
-                                onDelete()
-                            },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Default.Delete,
-                                    contentDescription = "删除"
-                                )
-                            }
-                        )
-                    }
-                }
-                
-                // 图片标识
-                if (note.hasImages) {
-                    Box(
-                        modifier = Modifier
-                            .size(48.dp)
-                            .background(
-                                color = MaterialTheme.colorScheme.surfaceVariant,
-                                shape = RoundedCornerShape(6.dp)
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Photo,
-                            contentDescription = "包含图片",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
+                )
             }
         }
+        
+        // 图片标识
+        if (note.hasImages) {
+            NoteImageIndicator()
+        }
+    }
+}
+
+@Composable
+private fun NoteImageIndicator() {
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .background(
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                shape = RoundedCornerShape(Dimensions.cornerRadiusSmall)
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = Icons.Default.Photo,
+            contentDescription = "包含图片",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(Dimensions.iconSizeMedium)
+        )
     }
 }
 

@@ -3,6 +3,7 @@ package com.example.noteapp.repository
 import com.example.noteapp.data.NoteDao
 import com.example.noteapp.data.NoteEntity
 import com.example.noteapp.data.NoteImage
+import com.example.noteapp.utils.orDefault
 import kotlinx.coroutines.flow.Flow
 import java.util.*
 
@@ -31,14 +32,13 @@ class NoteRepository(private val noteDao: NoteDao) {
     fun searchNotesAll(query: String): Flow<List<NoteEntity>> = 
         noteDao.searchNotesAll(query)
     
-    fun searchNotes(query: String, searchType: SearchType): Flow<List<NoteEntity>> {
-        return when (searchType) {
+    fun searchNotes(query: String, searchType: SearchType): Flow<List<NoteEntity>> = 
+        when (searchType) {
             SearchType.ALL -> searchNotesAll(query)
             SearchType.TITLE -> searchNotesByTitle(query)
             SearchType.CONTENT -> searchNotesByContent(query)
             SearchType.TAG -> searchNotesByTag(query)
         }
-    }
     
     suspend fun insertNote(note: NoteEntity) = noteDao.insertNote(note)
     
@@ -54,16 +54,13 @@ class NoteRepository(private val noteDao: NoteDao) {
         tags: List<String> = emptyList(),
         images: List<NoteImage> = emptyList()
     ): NoteEntity {
-        val currentTime = Date()
-        val note = NoteEntity(
+        val note = buildNoteEntity(
             id = UUID.randomUUID().toString(),
             title = title,
             content = content,
-            creationTime = currentTime,
-            lastEditTime = currentTime,
             tags = tags,
             images = images,
-            hasImages = images.isNotEmpty()
+            isNewNote = true
         )
         insertNote(note)
         return note
@@ -76,17 +73,42 @@ class NoteRepository(private val noteDao: NoteDao) {
         tags: List<String> = emptyList(),
         images: List<NoteImage> = emptyList()
     ) {
-        val existingNote = getNoteById(id)
-        existingNote?.let { note ->
-            val updatedNote = note.copy(
+        getNoteById(id)?.let { existingNote ->
+            val updatedNote = buildNoteEntity(
+                id = id,
                 title = title,
                 content = content,
                 tags = tags,
                 images = images,
-                hasImages = images.isNotEmpty(),
-                lastEditTime = Date()
+                isNewNote = false,
+                creationTime = existingNote.creationTime
             )
             updateNote(updatedNote)
         }
+    }
+    
+    /**
+     * 构建NoteEntity对象的通用方法
+     */
+    private fun buildNoteEntity(
+        id: String,
+        title: String,
+        content: String,
+        tags: List<String>,
+        images: List<NoteImage>,
+        isNewNote: Boolean,
+        creationTime: Date = Date()
+    ): NoteEntity {
+        val currentTime = Date()
+        return NoteEntity(
+            id = id,
+            title = title,
+            content = content,
+            creationTime = if (isNewNote) currentTime else creationTime,
+            lastEditTime = currentTime,
+            tags = tags,
+            images = images,
+            hasImages = images.isNotEmpty()
+        )
     }
 }

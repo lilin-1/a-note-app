@@ -13,77 +13,155 @@ import com.example.noteapp.ui.DateRange
 import com.example.noteapp.ui.DateFilterUtils
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 
 class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
     
     private val accountingService = AccountingService()
     
-    private val _searchQuery = MutableStateFlow("")
-    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+    // 搜索状态管理
+    private val searchState = SearchState()
+    val searchQuery: StateFlow<String> = searchState.query
+    val searchType: StateFlow<SearchType> = searchState.type
+    val isSearching: StateFlow<Boolean> = searchState.isSearching
     
-    private val _searchType = MutableStateFlow(SearchType.ALL)
-    val searchType: StateFlow<SearchType> = _searchType.asStateFlow()
+    // 筛选状态管理
+    private val filterState = FilterState()
+    val dateFilterType: StateFlow<DateFilterType> = filterState.dateFilterType
+    val customDateRange: StateFlow<DateRange?> = filterState.customDateRange
+    val calendarSelectedTag: StateFlow<String?> = filterState.calendarSelectedTag
     
-    private val _isSearching = MutableStateFlow(false)
-    val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
-    
-    // 日期筛选相关状态
-    private val _dateFilterType = MutableStateFlow(DateFilterType.ALL)
-    val dateFilterType: StateFlow<DateFilterType> = _dateFilterType.asStateFlow()
-    
-    private val _customDateRange = MutableStateFlow<DateRange?>(null)
-    val customDateRange: StateFlow<DateRange?> = _customDateRange.asStateFlow()
-    
-    // 日历标签筛选
-    private val _calendarSelectedTag = MutableStateFlow<String?>(null)
-    val calendarSelectedTag: StateFlow<String?> = _calendarSelectedTag.asStateFlow()
-    
-    val notes: StateFlow<List<NoteEntity>> = combine(
-        searchQuery.debounce(300).distinctUntilChanged(),
-        searchType,
-        dateFilterType,
-        customDateRange
-    ) { query, type, dateFilter, customRange ->
-        Triple(query, type, Pair(dateFilter, customRange))
-    }.flatMapLatest { (query, type, dateFilterData) ->
-        val (dateFilter, customRange) = dateFilterData
-        val baseFlow = if (query.isBlank()) {
-            repository.getAllNotes()
-        } else {
-            repository.searchNotes(query, type)
+    /**
+     * 搜索状态管理类
+     */
+    private class SearchState {
+        private val _query = MutableStateFlow("")
+        val query: StateFlow<String> = _query.asStateFlow()
+        
+        private val _type = MutableStateFlow(SearchType.ALL)
+        val type: StateFlow<SearchType> = _type.asStateFlow()
+        
+        private val _isSearching = MutableStateFlow(false)
+        val isSearching: StateFlow<Boolean> = _isSearching.asStateFlow()
+        
+        fun updateQuery(newQuery: String) {
+            _query.value = newQuery
+            _isSearching.value = newQuery.isNotBlank()
         }
         
-        baseFlow.map { noteList ->
-            // 应用日期筛选
-            val dateRange = DateFilterUtils.getDateRange(dateFilter, customRange)
-            if (dateRange != null) {
-                noteList.filter { note ->
-                    note.creationTime >= dateRange.startDate && note.creationTime <= dateRange.endDate
-                }
-            } else {
-                noteList
-            }
+        fun updateType(newType: SearchType) {
+            _type.value = newType
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5000),
-        initialValue = emptyList()
+        
+        fun clear() {
+            _query.value = ""
+            _isSearching.value = false
+            _type.value = SearchType.ALL
+        }
+    }
+    
+    /**
+     * 筛选状态管理类
+     */
+    private class FilterState {
+        private val _dateFilterType = MutableStateFlow(DateFilterType.ALL)
+        val dateFilterType: StateFlow<DateFilterType> = _dateFilterType.asStateFlow()
+        
+        private val _customDateRange = MutableStateFlow<DateRange?>(null)
+        val customDateRange: StateFlow<DateRange?> = _customDateRange.asStateFlow()
+        
+        private val _calendarSelectedTag = MutableStateFlow<String?>(null)
+        val calendarSelectedTag: StateFlow<String?> = _calendarSelectedTag.asStateFlow()
+        
+        fun updateDateFilterType(type: DateFilterType) {
+            _dateFilterType.value = type
+        }
+        
+        fun updateCustomDateRange(range: DateRange) {
+            _customDateRange.value = range
+        }
+        
+        fun updateCalendarSelectedTag(tag: String?) {
+            _calendarSelectedTag.value = tag
+        }
+        
+        fun clearDateFilter() {
+            _dateFilterType.value = DateFilterType.ALL
+            _customDateRange.value = null
+        }
+    }
+    
+    val notes: StateFlow<List<NoteEntity>> = createNotesFlow()
+    
+    /**
+     * 创建笔记流，整合搜索和筛选逻辑
+     */
+    @OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
+    private fun createNotesFlow(): StateFlow<List<NoteEntity>> {
+        return combine(
+            searchQuery.debounce(300).distinctUntilChanged(),
+            searchType,
+            dateFilterType,
+            customDateRange
+        ) { query, type, dateFilter, customRange ->
+            NotesQuery(query, type, dateFilter, customRange)
+        }.flatMapLatest { query ->
+            getFilteredNotes(query)
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+    }
+    
+    /**
+     * 笔记查询参数
+     */
+    private data class NotesQuery(
+        val searchQuery: String,
+        val searchType: SearchType,
+        val dateFilterType: DateFilterType,
+        val customDateRange: DateRange?
     )
     
-    fun updateSearchQuery(query: String) {
-        _searchQuery.value = query
-        _isSearching.value = query.isNotBlank()
+    /**
+     * 根据查询参数获取筛选后的笔记
+     */
+    private fun getFilteredNotes(query: NotesQuery): Flow<List<NoteEntity>> {
+        val baseFlow = if (query.searchQuery.isBlank()) {
+            repository.getAllNotes()
+        } else {
+            repository.searchNotes(query.searchQuery, query.searchType)
+        }
+        
+        return baseFlow.map { noteList ->
+            applyDateFilter(noteList, query.dateFilterType, query.customDateRange)
+        }
     }
     
-    fun updateSearchType(type: SearchType) {
-        _searchType.value = type
+    /**
+     * 应用日期筛选
+     */
+    private fun applyDateFilter(
+        notes: List<NoteEntity>,
+        dateFilterType: DateFilterType,
+        customDateRange: DateRange?
+    ): List<NoteEntity> {
+        val dateRange = DateFilterUtils.getDateRange(dateFilterType, customDateRange)
+        return if (dateRange != null) {
+            notes.filter { note ->
+                note.creationTime >= dateRange.startDate && note.creationTime <= dateRange.endDate
+            }
+        } else {
+            notes
+        }
     }
     
-    fun clearSearch() {
-        _searchQuery.value = ""
-        _isSearching.value = false
-        _searchType.value = SearchType.ALL
-    }
+    // 搜索相关方法
+    fun updateSearchQuery(query: String) = searchState.updateQuery(query)
+    fun updateSearchType(type: SearchType) = searchState.updateType(type)
+    fun clearSearch() = searchState.clear()
     
     fun createNote(
         title: String,
@@ -157,24 +235,11 @@ class NoteViewModel(private val repository: NoteRepository) : ViewModel() {
         return TagParser.getCommonAccountingTypes()
     }
     
-    // 日期筛选相关方法
-    fun updateDateFilterType(type: DateFilterType) {
-        _dateFilterType.value = type
-    }
-    
-    fun updateCustomDateRange(range: DateRange) {
-        _customDateRange.value = range
-    }
-    
-    fun clearDateFilter() {
-        _dateFilterType.value = DateFilterType.ALL
-        _customDateRange.value = null
-    }
-    
-    // 日历相关方法
-    fun updateCalendarSelectedTag(tag: String?) {
-        _calendarSelectedTag.value = tag
-    }
+    // 筛选相关方法
+    fun updateDateFilterType(type: DateFilterType) = filterState.updateDateFilterType(type)
+    fun updateCustomDateRange(range: DateRange) = filterState.updateCustomDateRange(range)
+    fun clearDateFilter() = filterState.clearDateFilter()
+    fun updateCalendarSelectedTag(tag: String?) = filterState.updateCalendarSelectedTag(tag)
     
     fun getAllTags(): StateFlow<List<String>> {
         return notes.map { noteList ->

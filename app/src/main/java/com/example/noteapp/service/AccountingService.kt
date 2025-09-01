@@ -37,41 +37,44 @@ class AccountingService {
      * @return 记账统计数据
      */
     fun calculateStatistics(notes: List<NoteEntity>): AccountingStatistics {
-        var totalIncome = BigDecimal.ZERO
-        var totalExpense = BigDecimal.ZERO
-        val typeStatistics = mutableMapOf<String, BigDecimal>()
-        var noteCount = 0
+        val accountingNotes = getAccountingNotes(notes)
+        val allAccountingTags = accountingNotes.flatMap { TagParser.extractAccountingTags(it.tags) }
         
-        notes.forEach { note ->
-            val accountingTags = TagParser.extractAccountingTags(note.tags)
-            if (accountingTags.isNotEmpty()) {
-                noteCount++
-                accountingTags.forEach { accountingTag ->
-                    when (accountingTag.type) {
-                        "收入" -> totalIncome = totalIncome.add(accountingTag.amount)
-                        "支出" -> totalExpense = totalExpense.add(accountingTag.amount)
-                        else -> {
-                            // 其他类型按支出处理
-                            totalExpense = totalExpense.add(accountingTag.amount)
-                        }
-                    }
-                    
-                    // 按类型统计
-                    val currentAmount = typeStatistics[accountingTag.type] ?: BigDecimal.ZERO
-                    typeStatistics[accountingTag.type] = currentAmount.add(accountingTag.amount)
-                }
-            }
-        }
-        
-        val balance = totalIncome.subtract(totalExpense)
+        val (totalIncome, totalExpense) = calculateTotals(allAccountingTags)
+        val typeStatistics = calculateTypeStatistics(allAccountingTags)
         
         return AccountingStatistics(
             totalIncome = totalIncome,
             totalExpense = totalExpense,
-            balance = balance,
-            typeStatistics = typeStatistics.toMap(),
-            noteCount = noteCount
+            balance = totalIncome.subtract(totalExpense),
+            typeStatistics = typeStatistics,
+            noteCount = accountingNotes.size
         )
+    }
+    
+    /**
+     * 计算总收入和总支出
+     */
+    private fun calculateTotals(accountingTags: List<TagParser.AccountingTag>): Pair<BigDecimal, BigDecimal> {
+        var totalIncome = BigDecimal.ZERO
+        var totalExpense = BigDecimal.ZERO
+        
+        accountingTags.forEach { tag ->
+            when (tag.type) {
+                "收入" -> totalIncome = totalIncome.add(tag.amount)
+                else -> totalExpense = totalExpense.add(tag.amount) // 其他类型按支出处理
+            }
+        }
+        
+        return totalIncome to totalExpense
+    }
+    
+    /**
+     * 计算按类型分组的统计
+     */
+    private fun calculateTypeStatistics(accountingTags: List<TagParser.AccountingTag>): Map<String, BigDecimal> {
+        return accountingTags.groupBy { it.type }
+            .mapValues { (_, tags) -> tags.sumOf { it.amount } }
     }
     
     /**
