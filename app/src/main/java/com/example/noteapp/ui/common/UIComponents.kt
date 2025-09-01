@@ -185,33 +185,7 @@ object UIComponents {
     }
 }
 
-/**
- * 日期格式化工具
- */
-object DateFormatters {
-    val shortDateFormatter = java.text.SimpleDateFormat("MM-dd HH:mm", java.util.Locale.getDefault())
-    val fullDateFormatter = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault())
-    val dateOnlyFormatter = java.text.SimpleDateFormat("yyyy年MM月dd日", java.util.Locale.getDefault())
-    val timeOnlyFormatter = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault())
-}
-
-/**
- * 常用尺寸定义
- */
-object Dimensions {
-    val paddingSmall = 4.dp
-    val paddingMedium = 8.dp
-    val paddingLarge = 16.dp
-    val paddingXLarge = 24.dp
-    
-    val iconSizeSmall = 16.dp
-    val iconSizeMedium = 24.dp
-    val iconSizeLarge = 32.dp
-    
-    val cornerRadiusSmall = 4.dp
-    val cornerRadiusMedium = 8.dp
-    val cornerRadiusLarge = 12.dp
-}
+// DateFormatters和Dimensions已移至独立文件
 
 /**
  * 常用颜色扩展

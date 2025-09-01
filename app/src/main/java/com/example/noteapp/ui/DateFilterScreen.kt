@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ExpandLess
 import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FilterList
@@ -23,11 +23,16 @@ import com.example.noteapp.ui.common.UIComponents
 import com.example.noteapp.ui.common.DateFormatters
 import com.example.noteapp.ui.common.Dimensions
 import com.example.noteapp.viewmodel.NoteViewModel
+import androidx.navigation.NavHostController
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DateFilterScreen(
     viewModel: NoteViewModel,
+    navController: NavHostController,
     onBack: () -> Unit
 ) {
     // 独立的筛选状态，不影响主界面
@@ -42,6 +47,7 @@ fun DateFilterScreen(
     }
     
     Scaffold(
+        modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
         topBar = {
             TopAppBar(
                 title = {
@@ -54,7 +60,7 @@ fun DateFilterScreen(
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            imageVector = Icons.Default.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "返回"
                         )
                     }
@@ -114,7 +120,7 @@ fun DateFilterScreen(
                 FilteredNotesList(
                     notes = filteredNotes,
                     onNoteClick = { noteId ->
-                        // 这里可以添加跳转到笔记详情的逻辑
+                        navController.navigate("note_detail/$noteId")
                     }
                 )
             }

@@ -7,8 +7,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalance
-import androidx.compose.material.icons.filled.TrendingDown
-import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +52,7 @@ fun AccountingStatsComponent(
                 StatCard(
                     title = "总收入",
                     amount = statistics.totalIncome,
-                    icon = Icons.Default.TrendingUp,
+                    icon = Icons.AutoMirrored.Filled.TrendingUp,
                     color = Color(0xFF4CAF50),
                     modifier = Modifier.weight(1f)
                 )
@@ -61,7 +61,7 @@ fun AccountingStatsComponent(
                 StatCard(
                     title = "总支出",
                     amount = statistics.totalExpense,
-                    icon = Icons.Default.TrendingDown,
+                    icon = Icons.AutoMirrored.Filled.TrendingDown,
                     color = Color(0xFFF44336),
                     modifier = Modifier.weight(1f)
                 )
